@@ -22,6 +22,7 @@ class TestCgi < Minitest::Test
     in2 = "asd" * 10000
     in3 = "baz"
     env = {
+      "REQUEST_METHOD" => "POST",
       "QUERY_STRING" => "username=theuser&password=thepass&course_name=the-course"
     }
 
@@ -35,9 +36,13 @@ class TestCgi < Minitest::Test
       end
     end
 
-    run_cgi!(in1, env)
-    run_cgi!(in2, env)
-    run_cgi!(in3, env)
+    out1 = run_cgi!(in1, env)
+    out2 = run_cgi!(in2, env)
+    out3 = run_cgi!(in3, env)
+
+    [out1, out2, out3].each do |out|
+      assert_equal("Status: 200 OK\n", out)
+    end
 
     (index, data) = read_data('the-course', 'theuser')
 
@@ -57,13 +62,16 @@ class TestCgi < Minitest::Test
   private
 
   def run_cgi!(stdin, envvars)
-    run_cgi(stdin, envvars)
+    output = run_cgi(stdin, envvars)
     raise "Failed: #{$?}" if !$?.success?
+    output
   end
 
   def run_cgi(stdin, envvars)
     IO.popen([envvars, @program,  :chdir => @test_dir], "r+") do |io|
       io.print stdin
+      io.close_write
+      io.read
     end
   end
 

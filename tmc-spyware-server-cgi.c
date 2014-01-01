@@ -18,6 +18,12 @@
 #define MAX_QUERY_STRING 4096
 #define MAX_PATH_LEN 4096
 
+
+/**
+ * Checks whether the request was a POST request.
+ */
+static int is_method_post();
+
 /**
  * Reads the keys in the null-terminated array `keys` from the query string.
  * Stores them in `buf`, a buffer of size `bufsize`.
@@ -43,6 +49,17 @@ static int make_datadir(const char *course_name);
  */
 static int save_incoming_data(const char *course_name, const char *username);
 
+/**
+ * Outputs the CGI Status header and returns an appropriate error code for main().
+ */
+static int respond(int status, const char *reason);
+
+
+static int is_method_post()
+{
+    const char *method = getenv("REQUEST_METHOD");
+    return (method && strcmp(method, "POST") == 0);
+}
 
 static int read_query_string(const char **keys, char *buf, size_t bufsize, char **bufptrs)
 {
@@ -147,8 +164,22 @@ static int save_incoming_data(const char *course_name, const char *username)
 }
 
 
+static int respond(int status, const char *reason)
+{
+    printf("Status: %d %s\n", status, reason);
+    int first_digit = status / 100;
+    return (first_digit == 2 || first_digit == 3) ? 0 : 1;
+}
+
 int main()
 {
+    // TODO: redirect stderr to logfile
+
+    if (!is_method_post()) {
+        fprintf(stderr, "Not a POST request.\n");
+        return respond(405, "Method Not Allowed");
+    }
+
     char param_buf[MAX_QUERY_STRING];
     const char *param_keys[] = {
         "course_name",
@@ -160,7 +191,7 @@ int main()
 
     if (!read_query_string(param_keys, param_buf, MAX_QUERY_STRING, param_vals)) {
         // already printed a log message
-        return 1;
+        return respond(400, "Bad Request");
     }
 
     const char *course_name = param_vals[0];
@@ -170,23 +201,23 @@ int main()
     char auth_qs[MAX_QUERY_STRING];
     if (snprintf(auth_qs, MAX_QUERY_STRING, "username=%s&password=%s", username, password) >= MAX_QUERY_STRING) {
         fprintf(stderr, "Auth query string too long.\n");
-        return 1;
+        return respond(400, "Bad Request");
     }
 
     if (!do_auth(auth_qs)) {
         // already printed a log message
-        return 1;
+        return respond(403, "Forbidden");
     }
 
     if (!make_datadir(course_name)) {
         // already printed a log message
-        return 1;
+        return respond(500, "Internal Server Error");
     }
 
     if (!save_incoming_data(course_name, username)) {
         fprintf(stderr, "Data transfer failed.\n");
-        return 1;
+        return respond(500, "Internal Server Error");
     }
 
-    return 0;
+    return respond(200, "OK");
 }
