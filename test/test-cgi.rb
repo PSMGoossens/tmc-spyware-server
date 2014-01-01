@@ -40,11 +40,13 @@ class TestCgi < Minitest::Test
     run_cgi!(in3, env)
 
     (index, data) = read_data('the-course', 'theuser')
-    
+
     sz1 = in1.size
     sz2 = sz1 + in2.size
     expected_index = [
-      [0, sz1], [sz1, in2.size], [sz2, in3.size]
+      [0, sz1],
+      [sz1, in2.size],
+      [sz2, in3.size]
     ].map {|x| x.join(" ") }.join("\n") + "\n"
     assert_equal(expected_index, index)
 
@@ -58,9 +60,9 @@ class TestCgi < Minitest::Test
     run_cgi(stdin, envvars)
     raise "Failed: #{$?}" if !$?.success?
   end
-  
+
   def run_cgi(stdin, envvars)
-    IO.popen([envvars, @program], "w", :chdir => @test_dir) do |io|
+    IO.popen([envvars, @program,  :chdir => @test_dir], "r+") do |io|
       io.print stdin
     end
   end
