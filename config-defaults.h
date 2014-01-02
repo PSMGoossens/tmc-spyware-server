@@ -10,3 +10,7 @@
 #ifndef DATA_DIR
 #define DATA_DIR "./data"
 #endif
+
+#ifndef LOG_FILE
+#define LOG_FILE "./tmc-spyware-server.log"
+#endif

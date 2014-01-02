@@ -13,12 +13,15 @@ class TestCgi < Minitest::Test
     @project_dir = File.realpath(@test_dir + '/../')
     @program = @project_dir + '/tmc-spyware-server-cgi'
     @test_data_dir = @test_dir + '/data'
+    @test_log_file = @test_dir + '/tmc-spyware-server.log'
 
     FileUtils.rm_rf(@test_data_dir)
+    FileUtils.rm_f(@test_log_file)
 
     @basic_env = {
       "REQUEST_METHOD" => "POST",
-      "QUERY_STRING" => "username=theuser&password=thepass&course_name=the-course"
+      "QUERY_STRING" => "username=theuser&password=thepass&course_name=the-course",
+      "REMOTE_ADDR" => "127.0.0.1"
     }
 
     Mimic.mimic(:port => 3000) do
@@ -59,6 +62,9 @@ class TestCgi < Minitest::Test
 
     expected_data = in1 + in2 + in3
     assert_equal(expected_data, data)
+
+    log = read_log
+    assert(log.include?(" 200 127.0.0.1"))
   end
 
   def test_providing_content_length
@@ -93,6 +99,11 @@ class TestCgi < Minitest::Test
 
     out = run_cgi!(input, env)
     assert_equal("Status: 500 Internal Server Error\n", out)
+
+    log = read_log
+    assert(log.include?("Input was 2 bytes shorter than expected.\n"))
+    assert(log.include?(" 500 127.0.0.1"))
+    assert(!log.include?(" 200 127.0.0.1"))
   end
 
   private
@@ -119,5 +130,9 @@ class TestCgi < Minitest::Test
     index_file = "#{@test_data_dir}/#{course}/#{user}.idx"
     data_file = "#{@test_data_dir}/#{course}/#{user}.dat"
     [File.read(index_file), File.read(data_file)]
+  end
+
+  def read_log
+    File.read(@test_log_file)
   end
 end

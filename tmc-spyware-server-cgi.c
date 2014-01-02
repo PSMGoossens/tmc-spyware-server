@@ -12,6 +12,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -187,13 +188,30 @@ static int save_incoming_data(const char *course_name, const char *username, ssi
 
 static int respond(int status, const char *reason)
 {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    fprintf(
+        stderr,
+        "%lld.%04d %d %s\n",
+        (long long)tv.tv_sec,
+        (int)tv.tv_usec / 1000,
+        status,
+        getenv("REMOTE_ADDR")
+    );
+
     int ok = (printf("Status: %d %s\n", status, reason) >= 0);
     return ok ? 0 : 1;
 }
 
 int main()
 {
-    // TODO: redirect stderr to logfile
+    if (strlen(LOG_FILE) > 0) {
+        if (freopen(LOG_FILE, "a", stderr) == NULL) {
+            fprintf(stderr, "Failed to open log file.");
+            return 1;
+        }
+    }
 
     if (!is_method_post()) {
         fprintf(stderr, "Not a POST request.\n");

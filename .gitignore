@@ -4,5 +4,8 @@
 /data
 /test/data
 
+/tmc-spyware-server.log
+/test/tmc-spyware-server.log
+
 /nbproject/private
 
