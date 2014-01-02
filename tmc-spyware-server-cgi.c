@@ -25,6 +25,11 @@
 static int is_method_post();
 
 /**
+ * Reads and parses CONTENT_LENGTH from the environment, returns -1 if not present or invalid.
+ */
+static ssize_t get_content_length();
+
+/**
  * Reads the keys in the null-terminated array `keys` from the query string.
  * Stores them in `buf`, a buffer of size `bufsize`.
  * Stores a pointer to the i'th value in `bufptrs[i]` (but does not null-terminate it).
@@ -47,10 +52,10 @@ static int make_datadir(const char *course_name);
 /**
  * Streams STDIN to the correct file in a failsafe manner.
  */
-static int save_incoming_data(const char *course_name, const char *username);
+static int save_incoming_data(const char *course_name, const char *username, ssize_t expected_length);
 
 /**
- * Outputs the CGI Status header and returns an appropriate error code for main().
+ * Outputs the CGI Status header. Returns 0 on success, 1 on failure (to match main()).
  */
 static int respond(int status, const char *reason);
 
@@ -59,6 +64,22 @@ static int is_method_post()
 {
     const char *method = getenv("REQUEST_METHOD");
     return (method && strcmp(method, "POST") == 0);
+}
+
+static ssize_t get_content_length()
+{
+    const char *value = getenv("CONTENT_LENGTH");
+    if (value && *value != '\0') {
+        errno = 0;
+        long res = strtol(value, NULL, 10);
+        if (errno == 0 && res >= 0) {
+            return (ssize_t)res;
+        } else {
+            return -1;
+        }
+    } else {
+        return -1;
+    }
 }
 
 static int read_query_string(const char **keys, char *buf, size_t bufsize, char **bufptrs)
@@ -141,7 +162,7 @@ static int make_datadir(const char *course_name)
     return 1;
 }
 
-static int save_incoming_data(const char *course_name, const char *username)
+static int save_incoming_data(const char *course_name, const char *username, ssize_t expected_length)
 {
     char index_path[MAX_PATH_LEN];
     char data_path[MAX_PATH_LEN];
@@ -156,7 +177,7 @@ static int save_incoming_data(const char *course_name, const char *username)
         return 0;
     }
 
-    if (!store_data(index_path, data_path, STDIN_FILENO)) {
+    if (!store_data(index_path, data_path, STDIN_FILENO, expected_length)) {
         return 0;
     }
 
@@ -166,9 +187,8 @@ static int save_incoming_data(const char *course_name, const char *username)
 
 static int respond(int status, const char *reason)
 {
-    printf("Status: %d %s\n", status, reason);
-    int first_digit = status / 100;
-    return (first_digit == 2 || first_digit == 3) ? 0 : 1;
+    int ok = (printf("Status: %d %s\n", status, reason) >= 0);
+    return ok ? 0 : 1;
 }
 
 int main()
@@ -179,6 +199,8 @@ int main()
         fprintf(stderr, "Not a POST request.\n");
         return respond(405, "Method Not Allowed");
     }
+
+    ssize_t content_length = get_content_length();
 
     char param_buf[MAX_QUERY_STRING];
     const char *param_keys[] = {
@@ -214,7 +236,7 @@ int main()
         return respond(500, "Internal Server Error");
     }
 
-    if (!save_incoming_data(course_name, username)) {
+    if (!save_incoming_data(course_name, username, content_length)) {
         fprintf(stderr, "Data transfer failed.\n");
         return respond(500, "Internal Server Error");
     }

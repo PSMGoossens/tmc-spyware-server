@@ -21,12 +21,12 @@ typedef struct DataFiles {
 
 // All helper functions shall return non-zero on success.
 static int create_or_open_datafiles(const char *index_path, const char *data_path, DataFiles *df);
-static int stream_data(int infd, int outfd, off_t *total_written);
+static int stream_data(int infd, int outfd, off_t *total_written, ssize_t expected_length);
 static int write_index(int index_fd, off_t data_offset, off_t data_len);
 static void close_datafiles(DataFiles df);
 
 
-int store_data(const char *index_path, const char *data_path, int infd)
+int store_data(const char *index_path, const char *data_path, int infd, ssize_t expected_length)
 {
     DataFiles df;
     if (!create_or_open_datafiles(index_path, data_path, &df)) {
@@ -40,7 +40,7 @@ int store_data(const char *index_path, const char *data_path, int infd)
     }
 
     off_t data_len = 0;
-    if (!stream_data(infd, df.data_fd, &data_len)) {
+    if (!stream_data(infd, df.data_fd, &data_len, expected_length)) {
         goto fail;
     }
 
@@ -112,19 +112,33 @@ fail:
     return 0;
 }
 
-static int stream_data(int infd, int outfd, off_t *total_written)
+static int stream_data(int infd, int outfd, off_t *total_written, ssize_t expected_length)
 {
+    // Note: `expected_length` may be negative, which means there is no expected length from infd.
+
     char buf[STREAM_BUF_SIZE];
 
     *total_written = 0;
-    while (1) {
-        ssize_t amt_read = read(infd, buf, STREAM_BUF_SIZE);
+    while (expected_length != 0) {
+        ssize_t amt_wanted;
+        if (expected_length >= 0 && expected_length < STREAM_BUF_SIZE) {
+            amt_wanted = expected_length;
+        } else {
+            amt_wanted = STREAM_BUF_SIZE;
+        }
+
+        ssize_t amt_read = read(infd, buf, amt_wanted);
         if (amt_read == -1) {
             perror("Reading incoming data failed");
             return 0;
         }
         if (amt_read == 0) {
-            return 1;
+            if (expected_length > 0) {
+                fprintf(stderr, "Input was %lld bytes shorter than expected.\n", (long long)expected_length);
+                return 0;
+            } else {
+                return 1;
+            }
         }
 
         ssize_t amt_written = 0;
@@ -136,8 +150,13 @@ static int stream_data(int infd, int outfd, off_t *total_written)
             }
             amt_written += amt_written_now;
             *total_written += amt_written_now;
+            if (expected_length >= 0) {
+                expected_length -= amt_written_now;
+            }
         }
     }
+
+    return 1;
 }
 
 static int write_index(int index_fd, off_t data_offset, off_t data_len)

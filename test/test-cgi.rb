@@ -15,13 +15,8 @@ class TestCgi < Minitest::Test
     @test_data_dir = @test_dir + '/data'
 
     FileUtils.rm_rf(@test_data_dir)
-  end
 
-  def test_three_sequential_operations
-    in1 = "foo\nbar"
-    in2 = "asd" * 10000
-    in3 = "baz"
-    env = {
+    @basic_env = {
       "REQUEST_METHOD" => "POST",
       "QUERY_STRING" => "username=theuser&password=thepass&course_name=the-course"
     }
@@ -35,6 +30,13 @@ class TestCgi < Minitest::Test
         end
       end
     end
+  end
+
+  def test_three_sequential_operations
+    in1 = "foo\nbar"
+    in2 = "asd" * 50000
+    in3 = "baz"
+    env = @basic_env
 
     out1 = run_cgi!(in1, env)
     out2 = run_cgi!(in2, env)
@@ -44,7 +46,7 @@ class TestCgi < Minitest::Test
       assert_equal("Status: 200 OK\n", out)
     end
 
-    (index, data) = read_data('the-course', 'theuser')
+    (index, data) = read_data
 
     sz1 = in1.size
     sz2 = sz1 + in2.size
@@ -59,6 +61,40 @@ class TestCgi < Minitest::Test
     assert_equal(expected_data, data)
   end
 
+  def test_providing_content_length
+    input = "1234567890" * 10000
+    env = @basic_env.merge("CONTENT_LENGTH" => "5")
+
+    out = run_cgi!(input, env)
+    assert_equal("Status: 200 OK\n", out)
+
+    (index, data) = read_data
+
+    assert_equal("0 5\n", index)
+    assert_equal("12345", data)
+  end
+
+  def test_providing_content_length_and_much_input
+    input = "1234567890" * 10000
+    env = @basic_env.merge("CONTENT_LENGTH" => "50000")
+
+    out = run_cgi!(input, env)
+    assert_equal("Status: 200 OK\n", out)
+
+    (index, data) = read_data
+
+    assert_equal("0 50000\n", index)
+    assert_equal(input[0...50000], data)
+  end
+
+  def test_error_on_short_input
+    input = "123"
+    env = @basic_env.merge("CONTENT_LENGTH" => "5")
+
+    out = run_cgi!(input, env)
+    assert_equal("Status: 500 Internal Server Error\n", out)
+  end
+
   private
 
   def run_cgi!(stdin, envvars)
@@ -69,13 +105,17 @@ class TestCgi < Minitest::Test
 
   def run_cgi(stdin, envvars)
     IO.popen([envvars, @program,  :chdir => @test_dir], "r+") do |io|
-      io.print stdin
+      begin
+        io.print stdin
+      rescue Errno::EPIPE
+        # ignore - some tests expect the program not to read all of stdin
+      end
       io.close_write
       io.read
     end
   end
 
-  def read_data(course, user)
+  def read_data(course = 'the-course', user = 'theuser')
     index_file = "#{@test_data_dir}/#{course}/#{user}.idx"
     data_file = "#{@test_data_dir}/#{course}/#{user}.dat"
     [File.read(index_file), File.read(data_file)]
