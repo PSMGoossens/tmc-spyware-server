@@ -2,9 +2,9 @@
 // For strchrnul
 #define _GNU_SOURCE
 
-#include "common.h"
 #include "auth.h"
 #include "datastream.h"
+#include "settings.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -144,13 +144,13 @@ static ssize_t get_qs_key(const char *qs, const char *key, char *buf, size_t buf
 
 static int make_datadir(const char *course_name)
 {
-    if (mkdir(DATA_DIR, 0777) == -1 && errno != EEXIST) {
-        fprintf(stderr, "Failed to create top-level data directory at %s.\n", DATA_DIR);
+    if (mkdir(settings.data_dir, 0777) == -1 && errno != EEXIST) {
+        fprintf(stderr, "Failed to create top-level data directory at %s.\n", settings.data_dir);
         return 0;
     }
 
     char pathbuf[MAX_PATH_LEN];
-    if (snprintf(pathbuf, MAX_PATH_LEN, "%s/%s", DATA_DIR, course_name) >= MAX_PATH_LEN) {
+    if (snprintf(pathbuf, MAX_PATH_LEN, "%s/%s", settings.data_dir, course_name) >= MAX_PATH_LEN) {
         fprintf(stderr, "Data dir path too long.\n");
         return 0;
     }
@@ -168,12 +168,12 @@ static int save_incoming_data(const char *course_name, const char *username, ssi
     char index_path[MAX_PATH_LEN];
     char data_path[MAX_PATH_LEN];
 
-    if (snprintf(index_path, MAX_PATH_LEN, "%s/%s/%s.idx", DATA_DIR, course_name, username) >= MAX_PATH_LEN) {
+    if (snprintf(index_path, MAX_PATH_LEN, "%s/%s/%s.idx", settings.data_dir, course_name, username) >= MAX_PATH_LEN) {
         fprintf(stderr, "Data file path too long.\n");
         return 0;
     }
 
-    if (snprintf(data_path, MAX_PATH_LEN, "%s/%s/%s.dat", DATA_DIR, course_name, username) >= MAX_PATH_LEN) {
+    if (snprintf(data_path, MAX_PATH_LEN, "%s/%s/%s.dat", settings.data_dir, course_name, username) >= MAX_PATH_LEN) {
         fprintf(stderr, "Data file path too long.\n");
         return 0;
     }
@@ -200,17 +200,15 @@ static int respond(int status, const char *reason)
         getenv("REMOTE_ADDR")
     );
 
-    int ok = (printf("Status: %d %s\n", status, reason) >= 0);
+    int ok = (printf("Status: %d %s\nContent-Type: text/plain; charset=utf-8\n\n%d %s\n", status, reason, status, reason) >= 0);
     return ok ? 0 : 1;
 }
 
 int main()
 {
-    if (strlen(LOG_FILE) > 0) {
-        if (freopen(LOG_FILE, "a", stderr) == NULL) {
-            fprintf(stderr, "Failed to open log file.");
-            return 1;
-        }
+    if (!init_settings_from_env()) {
+        fprintf(stderr, "Exiting due to missing or invalid settings.\n");
+        return respond(500, "Internal Server Error");
     }
 
     if (!is_method_post()) {

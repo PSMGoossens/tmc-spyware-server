@@ -2,8 +2,7 @@
 // For fmemopen
 #define _POSIX_C_SOURCE 200809L
 
-#include "common.h"
-
+#include "settings.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -11,6 +10,7 @@
 
 #define URL_SIZE 4096
 #define AUTHBUF_CAPACITY 100
+#define AUTH_TIMEOUT 15
 
 int do_auth(const char *query_string)
 {
@@ -19,7 +19,7 @@ int do_auth(const char *query_string)
     char resultbuf[AUTHBUF_CAPACITY];
     char errbuf[CURL_ERROR_SIZE];
 
-    if (snprintf(urlbuf, URL_SIZE, "%s?%s", AUTH_URL, query_string) >= URL_SIZE) {
+    if (snprintf(urlbuf, URL_SIZE, "%s?%s", settings.auth_url, query_string) >= URL_SIZE) {
         fprintf(stderr, "Authentication URL too long.\n");
         return 0;
     }

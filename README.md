@@ -13,17 +13,37 @@ be published without thorough anonymization.
 
 Dependencies: `libcurl-dev`.
 
-Configure by writing a `config.h` that defines the stuff mentioned in `config-defaults.h`.
-Then compile the program with `make`.
+Compile with `make`.
 
-## Running tests
+The program is configured via envvars. Here is a configuration example for Apache 2.4:
+
+    <VirtualHost *:80>
+        ServerName spyware.example.com
+
+        DocumentRoot /path/to/cgi-bin
+
+        RewriteEngine on
+        RewriteRule ^.*$ /tmc-spyware-server-cgi [L]
+        <Directory />
+            SetEnv TMC_SPYWARE_AUTH_URL "http://localhost:3000/auth.text"
+            SetEnv TMC_SPYWARE_DATA_DIR "/path/to/data"
+            Require all granted
+            Options ExecCGI
+            SetHandler cgi-script
+        </Directory>
+    </VirtualHost>
+
+## Running tests ##
 
 Note: tests must be run with an empty `config.h`!
 
-    rm -f config.h
+    mv config.h config.h.bak
     bundle install
-    cd test
-    ./test-cgi.rb
+    test/test-cgi.rb
+
+## Protocol ##
+
+Accepts a POST request of raw data with the following query parameters: `course_name`, `username`, `password`.
 
 ## File format ##
 
@@ -49,6 +69,8 @@ part of any indexed record. This is an acceptable and hopefully rare event.
 
 Non-battery-backed write caches and faulty disks remain a concern.
 Checksums may be added later to address these.
+
+The server can be load-balanced easily since the data files are easy to merge later.
 
 ## License ##
 

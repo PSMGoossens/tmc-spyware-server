@@ -1,10 +1,9 @@
 /config.h
-/tmc-spyware-server-cgi
+/cgi-bin/tmc-spyware-server-cgi
 
 /data
-/test/data
 
-/tmc-spyware-server.log
+/test/data
 /test/tmc-spyware-server.log
 
 /nbproject/private

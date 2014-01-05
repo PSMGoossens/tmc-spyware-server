@@ -11,20 +11,24 @@ class TestCgi < Minitest::Test
   def setup
     @test_dir = File.realpath(File.dirname(__FILE__))
     @project_dir = File.realpath(@test_dir + '/../')
-    @program = @project_dir + '/tmc-spyware-server-cgi'
+    @program = @project_dir + '/cgi-bin/tmc-spyware-server-cgi'
     @test_data_dir = @test_dir + '/data'
     @test_log_file = @test_dir + '/tmc-spyware-server.log'
+
+    @auth_port = 3038
 
     FileUtils.rm_rf(@test_data_dir)
     FileUtils.rm_f(@test_log_file)
 
     @basic_env = {
+      "TMC_SPYWARE_DATA_DIR" => @test_data_dir,
+      "TMC_SPYWARE_AUTH_URL" => "http://localhost:#{@auth_port}/auth.text",
       "REQUEST_METHOD" => "POST",
       "QUERY_STRING" => "username=theuser&password=thepass&course_name=the-course",
       "REMOTE_ADDR" => "127.0.0.1"
     }
 
-    Mimic.mimic(:port => 3000) do
+    Mimic.mimic(:port => @auth_port) do
       get("/auth.text") do
         if params["username"] == "theuser" && params["password"] == "thepass"
           [200, {}, "OK"]
@@ -46,7 +50,7 @@ class TestCgi < Minitest::Test
     out3 = run_cgi!(in3, env)
 
     [out1, out2, out3].each do |out|
-      assert_equal("Status: 200 OK\n", out)
+      assert_starts_with("Status: 200 OK\n", out)
     end
 
     (index, data) = read_data
@@ -72,7 +76,7 @@ class TestCgi < Minitest::Test
     env = @basic_env.merge("CONTENT_LENGTH" => "5")
 
     out = run_cgi!(input, env)
-    assert_equal("Status: 200 OK\n", out)
+    assert_starts_with("Status: 200 OK\n", out)
 
     (index, data) = read_data
 
@@ -85,7 +89,7 @@ class TestCgi < Minitest::Test
     env = @basic_env.merge("CONTENT_LENGTH" => "50000")
 
     out = run_cgi!(input, env)
-    assert_equal("Status: 200 OK\n", out)
+    assert_starts_with("Status: 200 OK\n", out)
 
     (index, data) = read_data
 
@@ -98,7 +102,7 @@ class TestCgi < Minitest::Test
     env = @basic_env.merge("CONTENT_LENGTH" => "5")
 
     out = run_cgi!(input, env)
-    assert_equal("Status: 500 Internal Server Error\n", out)
+    assert_starts_with("Status: 500 Internal Server Error\n", out)
 
     log = read_log
     assert(log.include?("Input was 2 bytes shorter than expected.\n"))
@@ -115,7 +119,7 @@ class TestCgi < Minitest::Test
   end
 
   def run_cgi(stdin, envvars)
-    IO.popen([envvars, @program,  :chdir => @test_dir], "r+") do |io|
+    IO.popen([envvars, @program, :chdir => @test_dir, :err => @test_log_file], "r+") do |io|
       begin
         io.print stdin
       rescue Errno::EPIPE
@@ -134,5 +138,9 @@ class TestCgi < Minitest::Test
 
   def read_log
     File.read(@test_log_file)
+  end
+
+  def assert_starts_with(expected, actual)
+    assert_equal(expected, actual[0...(expected.length)])
   end
 end

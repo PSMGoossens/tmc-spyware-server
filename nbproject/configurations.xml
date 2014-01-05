@@ -4,6 +4,7 @@
     <df root="." name="0">
       <in>auth.c</in>
       <in>datastream.c</in>
+      <in>settings.c</in>
       <in>tmc-spyware-server-cgi.c</in>
     </df>
     <logicalFolder name="ExternalFiles"
@@ -40,15 +41,19 @@
           </cTool>
         </makeTool>
       </makefileType>
-      <item path="auth.c" ex="false" tool="0" flavor2="2">
+      <item path="auth.c" ex="false" tool="0" flavor2="3">
         <cTool>
         </cTool>
       </item>
-      <item path="datastream.c" ex="false" tool="0" flavor2="2">
+      <item path="datastream.c" ex="false" tool="0" flavor2="3">
         <cTool>
         </cTool>
       </item>
-      <item path="tmc-spyware-server-cgi.c" ex="false" tool="0" flavor2="2">
+      <item path="settings.c" ex="false" tool="0" flavor2="3">
+        <cTool>
+        </cTool>
+      </item>
+      <item path="tmc-spyware-server-cgi.c" ex="false" tool="0" flavor2="3">
         <cTool>
         </cTool>
       </item>
