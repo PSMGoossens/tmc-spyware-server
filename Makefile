@@ -17,4 +17,4 @@ $(BINARY): $(SOURCES) $(HEADERS)
 
 clean:
 	rm -f ${BINARY}
-	rmdir cgi-bin
+	if [ -e cgi-bin ]; then rmdir cgi-bin; fi
