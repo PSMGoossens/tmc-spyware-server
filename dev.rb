@@ -38,7 +38,6 @@ module MyCGIHandlerBuilder
 end
 
 server = WEBrick::HTTPServer.new(:Port => port, :DocumentRoot => 'cgi-bin', :AccessLog => [])
-#server.mount('/', WEBrick::HTTPServlet::CGIHandler, File.expand_path(cgi_program))
 server.mount('/', MyCGIHandlerBuilder, File.expand_path(cgi_program))
 
 trap("INT") do
