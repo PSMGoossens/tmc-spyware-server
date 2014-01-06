@@ -24,7 +24,7 @@ class TestCgi < Minitest::Test
       "TMC_SPYWARE_DATA_DIR" => @test_data_dir,
       "TMC_SPYWARE_AUTH_URL" => "http://localhost:#{@auth_port}/auth.text",
       "REQUEST_METHOD" => "POST",
-      "QUERY_STRING" => "username=theuser&password=thepass&course_name=the-course",
+      "QUERY_STRING" => "username=theuser&password=thepass",
       "REMOTE_ADDR" => "127.0.0.1"
     }
 
@@ -130,9 +130,9 @@ class TestCgi < Minitest::Test
     end
   end
 
-  def read_data(course = 'the-course', user = 'theuser')
-    index_file = "#{@test_data_dir}/#{course}/#{user}.idx"
-    data_file = "#{@test_data_dir}/#{course}/#{user}.dat"
+  def read_data(user = 'theuser')
+    index_file = "#{@test_data_dir}/#{user}.idx"
+    data_file = "#{@test_data_dir}/#{user}.dat"
     [File.read(index_file), File.read(data_file)]
   end
 

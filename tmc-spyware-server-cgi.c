@@ -48,12 +48,12 @@ static ssize_t get_qs_key(const char *qs, const char *key, char *buf, size_t buf
 /**
  * Ensures the data directory exists. Returns 0 on failure, 1 on success.
  */
-static int make_datadir(const char *course_name);
+static int make_datadir();
 
 /**
  * Streams STDIN to the correct file in a failsafe manner.
  */
-static int save_incoming_data(const char *course_name, const char *username, ssize_t expected_length);
+static int save_incoming_data(const char *username, ssize_t expected_length);
 
 /**
  * Outputs the CGI Status header. Returns 0 on success, 1 on failure (to match main()).
@@ -142,38 +142,27 @@ static ssize_t get_qs_key(const char *qs, const char *key, char *buf, size_t buf
     return -1;
 }
 
-static int make_datadir(const char *course_name)
+static int make_datadir()
 {
     if (mkdir(settings.data_dir, 0777) == -1 && errno != EEXIST) {
         fprintf(stderr, "Failed to create top-level data directory at %s.\n", settings.data_dir);
         return 0;
     }
 
-    char pathbuf[MAX_PATH_LEN];
-    if (snprintf(pathbuf, MAX_PATH_LEN, "%s/%s", settings.data_dir, course_name) >= MAX_PATH_LEN) {
-        fprintf(stderr, "Data dir path too long.\n");
-        return 0;
-    }
-
-    if (mkdir(pathbuf, 0777) == -1 && errno != EEXIST) {
-        fprintf(stderr, "Failed to create data directory at %s.\n", pathbuf);
-        return 0;
-    }
-
     return 1;
 }
 
-static int save_incoming_data(const char *course_name, const char *username, ssize_t expected_length)
+static int save_incoming_data(const char *username, ssize_t expected_length)
 {
     char index_path[MAX_PATH_LEN];
     char data_path[MAX_PATH_LEN];
 
-    if (snprintf(index_path, MAX_PATH_LEN, "%s/%s/%s.idx", settings.data_dir, course_name, username) >= MAX_PATH_LEN) {
+    if (snprintf(index_path, MAX_PATH_LEN, "%s/%s.idx", settings.data_dir, username) >= MAX_PATH_LEN) {
         fprintf(stderr, "Data file path too long.\n");
         return 0;
     }
 
-    if (snprintf(data_path, MAX_PATH_LEN, "%s/%s/%s.dat", settings.data_dir, course_name, username) >= MAX_PATH_LEN) {
+    if (snprintf(data_path, MAX_PATH_LEN, "%s/%s.dat", settings.data_dir, username) >= MAX_PATH_LEN) {
         fprintf(stderr, "Data file path too long.\n");
         return 0;
     }
@@ -220,7 +209,6 @@ int main()
 
     char param_buf[MAX_QUERY_STRING];
     const char *param_keys[] = {
-        "course_name",
         "username",
         "password",
         NULL
@@ -232,9 +220,8 @@ int main()
         return respond(400, "Bad Request");
     }
 
-    const char *course_name = param_vals[0];
-    const char *username = param_vals[1];
-    const char *password = param_vals[2];
+    const char *username = param_vals[0];
+    const char *password = param_vals[1];
 
     char auth_qs[MAX_QUERY_STRING];
     if (snprintf(auth_qs, MAX_QUERY_STRING, "username=%s&password=%s", username, password) >= MAX_QUERY_STRING) {
@@ -247,12 +234,12 @@ int main()
         return respond(403, "Forbidden");
     }
 
-    if (!make_datadir(course_name)) {
+    if (!make_datadir()) {
         // already printed a log message
         return respond(500, "Internal Server Error");
     }
 
-    if (!save_incoming_data(course_name, username, content_length)) {
+    if (!save_incoming_data(username, content_length)) {
         fprintf(stderr, "Data transfer failed.\n");
         return respond(500, "Internal Server Error");
     }

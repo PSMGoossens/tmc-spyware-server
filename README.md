@@ -43,11 +43,11 @@ Note: tests must be run with an empty `config.h`!
 
 ## Protocol ##
 
-Accepts a POST request of raw data with the following query parameters: `course_name`, `username`, `password`.
+Accepts a POST request of raw data with the query parameters `username` and `password`.
 
 ## File format ##
 
-Each course has a directory with two files for each student.
+Each student has two files:
 
 - The *data file*, named `<username>.dat`, contains a sequence
   of data records, the format of which is free-form.
