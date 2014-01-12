@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
@@ -162,16 +163,20 @@ static int stream_data(int infd, int outfd, off_t *total_written, ssize_t expect
 
 static int write_index(int index_fd, off_t data_offset, off_t data_len)
 {
-    const int buf_size = 256; // Certainly enough for two textual 64-bit numbers
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    const int buf_size = 256;
     char buf[buf_size];
 
     int rowlen = snprintf(
         buf,
         buf_size,
-        "%lld %lld {\"ip\":\"%s\"}\n",
+        "%lld %lld {\"ip\":\"%s\",\"t\":%lld}\n",
         (long long)data_offset,
         (long long)data_len,
-        getenv("REMOTE_ADDR")
+        getenv("REMOTE_ADDR"),
+        (long long)(tv.tv_sec * 1000 + tv.tv_usec / 1000)
     );
 
     errno = 0;

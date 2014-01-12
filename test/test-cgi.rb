@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 gem 'minitest'
+require 'json'
 require 'socket' # work around https://github.com/lukeredpath/mimic/pull/12 
 require 'minitest/autorun'
 require 'mimic'
@@ -60,11 +61,11 @@ class TestCgi < Minitest::Test
     sz1 = in1.size
     sz2 = sz1 + in2.size
     expected_index = [
-      [0, sz1, expected_metadata],
-      [sz1, in2.size, expected_metadata],
-      [sz2, in3.size, expected_metadata]
-    ].map {|x| x.join(" ") }.join("\n") + "\n"
-    assert_equal(expected_index, index)
+      [0, sz1],
+      [sz1, in2.size],
+      [sz2, in3.size]
+    ]
+    assert_equal(expected_index, index.map {|r| r[0..1] })
 
     expected_data = in1 + in2 + in3
     assert_equal(expected_data, data)
@@ -82,7 +83,8 @@ class TestCgi < Minitest::Test
 
     (index, data) = read_data
 
-    assert_equal("0 5 #{expected_metadata}\n", index)
+    assert_equal(0, index[0][0])
+    assert_equal(5, index[0][1])
     assert_equal("12345", data)
   end
 
@@ -95,7 +97,8 @@ class TestCgi < Minitest::Test
 
     (index, data) = read_data
 
-    assert_equal("0 50000 #{expected_metadata}\n", index)
+    assert_equal(0, index[0][0])
+    assert_equal(50000, index[0][1])
     assert_equal(input[0...50000], data)
   end
 
@@ -153,7 +156,7 @@ class TestCgi < Minitest::Test
   def read_data(user = 'the user')
     index_file = "#{@test_data_dir}/#{user}.idx"
     data_file = "#{@test_data_dir}/#{user}.dat"
-    [File.read(index_file), File.read(data_file)]
+    [parse_index(File.read(index_file)), File.read(data_file)]
   end
 
   def read_log
@@ -164,7 +167,13 @@ class TestCgi < Minitest::Test
     assert_equal(expected, actual[0...(expected.length)])
   end
 
-  def expected_metadata
-    '{"ip":"127.0.0.1"}'
+  def parse_index(index)
+    index.lines.map do |line|
+      if line =~ /^(\d+) (\d+) (.*)/
+        [$1.to_i, $2.to_i, JSON.parse($3)]
+      else
+        raise "Invalid index line: '#{line}'"
+      end
+    end
   end
 end
