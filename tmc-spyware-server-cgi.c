@@ -31,19 +31,10 @@ static int is_method_post();
 static ssize_t get_content_length();
 
 /**
- * Reads the keys in the null-terminated array `keys` from the query string.
- * Stores them in `buf`, a buffer of size `bufsize`.
- * Stores a pointer to the i'th value in `bufptrs[i]` (but does not null-terminate it).
- * Returns 0 on failure.
+ * Copies the environment variable to the given buffer.
+ * Returns 0 on failure, 1 on success.
  */
-static int read_query_string(const char **keys, char *buf, size_t bufsize, char **bufptrs);
-
-/**
- * Finds the value for `key` from the query string `qs` without any decoding.
- * Returns the length of the value (excluding null byte),
- * or -1 if not found or -2 if buf too small.
- */
-static ssize_t get_qs_key(const char *qs, const char *key, char *buf, size_t bufsize);
+static int copy_env(const char *name, char *buf, ssize_t bufsize);
 
 /**
  * Ensures the data directory exists. Returns 0 on failure, 1 on success.
@@ -83,63 +74,21 @@ static ssize_t get_content_length()
     }
 }
 
-static int read_query_string(const char **keys, char *buf, size_t bufsize, char **bufptrs)
+static int copy_env(const char *name, char *buf, ssize_t bufsize)
 {
-    const char *qs = getenv("QUERY_STRING");
-    if (!qs) {
-        fprintf(stderr, "No QUERY_STRING.\n");
+    const char *value = getenv(name);
+    if (!value) {
         return 0;
     }
-    if (strlen(qs) + 1 > MAX_QUERY_STRING) {
-        fprintf(stderr, "QUERY_STRING too long.\n");
+    size_t len = strlen(value);
+
+    if (len + 1 > bufsize) {
+        fprintf(stderr, "Env variable too long: %s\n", name);
         return 0;
     }
 
-    for (int i = 0; keys[i] != NULL; ++i) {
-        ssize_t len = get_qs_key(qs, keys[i], buf, bufsize);
-        if (len <= 0) {
-            fprintf(stderr, "Missing GET parameter: %s\n", keys[i]);
-            return 0;
-        }
-        bufptrs[i] = buf;
-        buf += len;
-        bufsize -= len;
-    }
-
+    memcpy(buf, value, len + 1);
     return 1;
-}
-
-static ssize_t get_qs_key(const char *qs, const char *key, char *buf, size_t bufsize)
-{
-    const char *p = qs;
-    const char *k = key;
-
-    while (*p != '\0') {
-        if (*p == '&') {
-            // new key
-            k = key;
-        } else if (k && *p == '=') {
-            // key found
-            const char *start = p + 1;
-            const char *end = strchrnul(start, '&');
-            size_t len = end - start + 1;
-            if (bufsize < len) {
-                return -2;
-            }
-            memcpy(buf, start, len);
-            buf[len - 1] = '\0';
-            return len;
-        } else if (k && *p == *k) {
-            // key matches so far
-            k++;
-        } else {
-            k = NULL;
-        }
-
-        p++;
-    }
-
-    return -1;
 }
 
 static int make_datadir()
@@ -207,21 +156,37 @@ int main()
 
     ssize_t content_length = get_content_length();
 
-    char param_buf[MAX_QUERY_STRING];
-    const char *param_keys[] = {
-        "username",
-        "password",
-        NULL
-    };
-    char *param_vals[3];
-
-    if (!read_query_string(param_keys, param_buf, MAX_QUERY_STRING, param_vals)) {
-        // already printed a log message
+    char protocol_version[16];
+    char username[256];
+    char password[256];
+    if (!copy_env("HTTP_X_TMC_VERSION", protocol_version, sizeof(protocol_version))) {
+        fprintf(stderr, "Protocol version missing or too long.\n");
         return respond(400, "Bad Request");
     }
 
-    const char *username = param_vals[0];
-    const char *password = param_vals[1];
+    if (strcmp(protocol_version, "1") != 0) {
+        fprintf(stderr, "Unknown protocol version.\n");
+        return respond(400, "Bad Request");
+    }
+
+    if (!copy_env("HTTP_X_TMC_USERNAME", username, sizeof(username))) {
+        fprintf(stderr, "Username missing or too long.\n");
+        return respond(400, "Bad Request");
+    }
+    if (!copy_env("HTTP_X_TMC_PASSWORD", password, sizeof(password))) {
+        fprintf(stderr, "Password missing or too long.\n");
+        return respond(400, "Bad Request");
+    }
+
+    // We use username as a file name so we need to be careful
+    if (username[0] == '.') {
+        fprintf(stderr, "Username starts with '.'.\n");
+        return respond(400, "Bad Request");
+    }
+    if (strchr(username, '/')) {
+        fprintf(stderr, "Username contains a '/'.\n");
+        return respond(400, "Bad Request");
+    }
 
     char auth_qs[MAX_QUERY_STRING];
     if (snprintf(auth_qs, MAX_QUERY_STRING, "username=%s&password=%s", username, password) >= MAX_QUERY_STRING) {
@@ -229,7 +194,7 @@ int main()
         return respond(400, "Bad Request");
     }
 
-    if (!do_auth(auth_qs)) {
+    if (!do_auth(username, password)) {
         // already printed a log message
         return respond(403, "Forbidden");
     }

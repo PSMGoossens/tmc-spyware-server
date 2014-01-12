@@ -12,17 +12,35 @@
 #define AUTHBUF_CAPACITY 100
 #define AUTH_TIMEOUT 15
 
-int do_auth(const char *query_string)
+static int build_url(CURL *curl, char *urlbuf, size_t urlbufsize, const char *username, const char *password)
+{
+    char *escaped_username = curl_easy_escape(curl, username, 0);
+    if (!escaped_username) {
+        return 0;
+    }
+    char *escaped_password = curl_easy_escape(curl, password, 0);
+    if (!escaped_password) {
+        curl_free(escaped_username);
+        return 0;
+    }
+
+    int ret = 1;
+    if (snprintf(urlbuf, urlbufsize, "%s?username=%s&password=%s", settings.auth_url, escaped_username, escaped_password) >= urlbufsize) {
+        fprintf(stderr, "Authentication URL too long.\n");
+        ret = 0;
+    }
+
+    curl_free(escaped_username);
+    curl_free(escaped_password);
+    return ret;
+}
+
+int do_auth(const char *username, const char *password)
 {
     int ret = 0;
     char urlbuf[URL_SIZE];
     char resultbuf[AUTHBUF_CAPACITY];
     char errbuf[CURL_ERROR_SIZE];
-
-    if (snprintf(urlbuf, URL_SIZE, "%s?%s", settings.auth_url, query_string) >= URL_SIZE) {
-        fprintf(stderr, "Authentication URL too long.\n");
-        return 0;
-    }
 
     FILE *f = fmemopen(resultbuf, AUTHBUF_CAPACITY - 1, "wb");
     if (!f) {
@@ -30,8 +48,20 @@ int do_auth(const char *query_string)
         return 0;
     }
     setbuf(f, NULL);
-    
+
     CURL *curl = curl_easy_init();
+    if (!curl) {
+        fprintf(stderr, "Failed to open CURL.\n");
+        fclose(f);
+        return 0;
+    }
+
+    if (!build_url(curl, urlbuf, URL_SIZE, username, password)) {
+        curl_easy_cleanup(curl);
+        fclose(f);
+        return 0;
+    }
+
     curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
     curl_easy_setopt(curl, CURLOPT_URL, urlbuf);
     curl_easy_setopt(curl, CURLOPT_NETRC, CURL_NETRC_IGNORED);
@@ -48,7 +78,7 @@ int do_auth(const char *query_string)
     if (!ret) {
         fprintf(stderr, "Auth failed: %s\n", errbuf);
     }
-    
+
     curl_easy_cleanup(curl);
     fclose(f);
     return ret;

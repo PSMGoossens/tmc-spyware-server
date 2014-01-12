@@ -24,13 +24,15 @@ class TestCgi < Minitest::Test
       "TMC_SPYWARE_DATA_DIR" => @test_data_dir,
       "TMC_SPYWARE_AUTH_URL" => "http://localhost:#{@auth_port}/auth.text",
       "REQUEST_METHOD" => "POST",
-      "QUERY_STRING" => "username=theuser&password=thepass",
+      "HTTP_X_TMC_VERSION" => "1",
+      "HTTP_X_TMC_USERNAME" => "the user",
+      "HTTP_X_TMC_PASSWORD" => "the+pass",
       "REMOTE_ADDR" => "127.0.0.1"
     }
 
     Mimic.mimic(:port => @auth_port) do
       get("/auth.text") do
-        if params["username"] == "theuser" && params["password"] == "thepass"
+        if params["username"] == "the user" && params["password"] == "the+pass"
           [200, {}, "OK"]
         else
           [200, {}, "FAIL"]
@@ -110,6 +112,14 @@ class TestCgi < Minitest::Test
     assert(!log.include?(" 200 127.0.0.1"))
   end
 
+  def test_error_if_username_has_slash
+    env = @basic_env.merge("CONTENT_LENGTH" => "3", "HTTP_X_TMC_USERNAME" => "foo/bar")
+
+    out = run_cgi!("asd", env)
+
+    assert_starts_with("Status: 400 Bad Request\n", out)
+  end
+
   private
 
   def run_cgi!(stdin, envvars)
@@ -130,7 +140,7 @@ class TestCgi < Minitest::Test
     end
   end
 
-  def read_data(user = 'theuser')
+  def read_data(user = 'the user')
     index_file = "#{@test_data_dir}/#{user}.idx"
     data_file = "#{@test_data_dir}/#{user}.dat"
     [File.read(index_file), File.read(data_file)]
