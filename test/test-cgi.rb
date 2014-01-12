@@ -60,9 +60,9 @@ class TestCgi < Minitest::Test
     sz1 = in1.size
     sz2 = sz1 + in2.size
     expected_index = [
-      [0, sz1],
-      [sz1, in2.size],
-      [sz2, in3.size]
+      [0, sz1, expected_metadata],
+      [sz1, in2.size, expected_metadata],
+      [sz2, in3.size, expected_metadata]
     ].map {|x| x.join(" ") }.join("\n") + "\n"
     assert_equal(expected_index, index)
 
@@ -82,7 +82,7 @@ class TestCgi < Minitest::Test
 
     (index, data) = read_data
 
-    assert_equal("0 5\n", index)
+    assert_equal("0 5 #{expected_metadata}\n", index)
     assert_equal("12345", data)
   end
 
@@ -95,7 +95,7 @@ class TestCgi < Minitest::Test
 
     (index, data) = read_data
 
-    assert_equal("0 50000\n", index)
+    assert_equal("0 50000 #{expected_metadata}\n", index)
     assert_equal(input[0...50000], data)
   end
 
@@ -152,5 +152,9 @@ class TestCgi < Minitest::Test
 
   def assert_starts_with(expected, actual)
     assert_equal(expected, actual[0...(expected.length)])
+  end
+
+  def expected_metadata
+    '{"ip":"127.0.0.1"}'
   end
 end

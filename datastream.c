@@ -4,6 +4,7 @@
 
 #include "datastream.h"
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -167,9 +168,10 @@ static int write_index(int index_fd, off_t data_offset, off_t data_len)
     int rowlen = snprintf(
         buf,
         buf_size,
-        "%lld %lld\n",
+        "%lld %lld {\"ip\":\"%s\"}\n",
         (long long)data_offset,
-        (long long)data_len
+        (long long)data_len,
+        getenv("REMOTE_ADDR")
     );
 
     errno = 0;

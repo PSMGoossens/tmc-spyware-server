@@ -61,6 +61,7 @@ Each student has two files:
 - The *index file*, named `<username>.idx` is a text file where each line
   starts with two ascii integers: the absolute offset of the record
   and the length of the record. The record offsets must be in ascending order.
+  The line may continue with additional metadata.
 
 Writes to the index and data file are protected by an exclusive `flock`
 on the index file. The writing protocol is as follows:
