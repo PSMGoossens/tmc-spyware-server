@@ -16,7 +16,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define MAX_QUERY_STRING 4096
 #define MAX_PATH_LEN 4096
 
 
@@ -32,9 +31,9 @@ static ssize_t get_content_length();
 
 /**
  * Copies the environment variable to the given buffer.
- * Returns 0 on failure, 1 on success.
+ * Returns 0 on failure, 1 on success. Sets `buf[0] = '\0';` if fails.
  */
-static int copy_env(const char *name, char *buf, ssize_t bufsize);
+static int copy_env(const char *name, char *buf, size_t bufsize);
 
 /**
  * Ensures the data directory exists. Returns 0 on failure, 1 on success.
@@ -74,8 +73,12 @@ static ssize_t get_content_length()
     }
 }
 
-static int copy_env(const char *name, char *buf, ssize_t bufsize)
+static int copy_env(const char *name, char *buf, size_t bufsize)
 {
+    if (bufsize > 0) {
+        buf[0] = '\0';
+    }
+
     const char *value = getenv(name);
     if (!value) {
         return 0;
@@ -157,24 +160,18 @@ int main()
     ssize_t content_length = get_content_length();
 
     char protocol_version[16];
-    char username[256];
-    char password[256];
     if (!copy_env("HTTP_X_TMC_VERSION", protocol_version, sizeof(protocol_version))) {
         fprintf(stderr, "Protocol version missing or too long.\n");
         return respond(400, "Bad Request");
     }
-
     if (strcmp(protocol_version, "1") != 0) {
         fprintf(stderr, "Unknown protocol version.\n");
         return respond(400, "Bad Request");
     }
 
+    char username[256];
     if (!copy_env("HTTP_X_TMC_USERNAME", username, sizeof(username))) {
         fprintf(stderr, "Username missing or too long.\n");
-        return respond(400, "Bad Request");
-    }
-    if (!copy_env("HTTP_X_TMC_PASSWORD", password, sizeof(password))) {
-        fprintf(stderr, "Password missing or too long.\n");
         return respond(400, "Bad Request");
     }
 
@@ -188,13 +185,17 @@ int main()
         return respond(400, "Bad Request");
     }
 
-    char auth_qs[MAX_QUERY_STRING];
-    if (snprintf(auth_qs, MAX_QUERY_STRING, "username=%s&password=%s", username, password) >= MAX_QUERY_STRING) {
-        fprintf(stderr, "Auth query string too long.\n");
+    char password[256];
+    char session_id[256];
+    int got_password = copy_env("HTTP_X_TMC_PASSWORD", password, sizeof(password));
+    int got_session_id = copy_env("HTTP_X_TMC_SESSION_ID", session_id, sizeof(session_id));
+
+    if (!got_password && !got_session_id) {
+        fprintf(stderr, "Request provided no password and no session ID.\n");
         return respond(400, "Bad Request");
     }
 
-    if (!do_auth(username, password)) {
+    if (!do_auth(username, password, session_id)) {
         // already printed a log message
         return respond(403, "Forbidden");
     }

@@ -32,7 +32,7 @@ class TestCgi < Minitest::Test
 
     Mimic.mimic(:port => @auth_port) do
       get("/auth.text") do
-        if params["username"] == "the user" && params["password"] == "the+pass"
+        if params["username"] == "the user" && (params["password"] == "the+pass" || params["session_id"] == "the session id")
           [200, {}, "OK"]
         else
           [200, {}, "FAIL"]
@@ -118,6 +118,16 @@ class TestCgi < Minitest::Test
     out = run_cgi!("asd", env)
 
     assert_starts_with("Status: 400 Bad Request\n", out)
+  end
+
+  def test_auth_with_session_id_instead_of_password
+    env = @basic_env.clone
+    env.delete("HTTP_X_TMC_PASSWORD")
+    env["HTTP_X_TMC_SESSION_ID"] = "the session id"
+
+    out = run_cgi!("asd", env)
+
+    assert_starts_with("Status: 200 OK\n", out)
   end
 
   private

@@ -12,30 +12,54 @@
 #define AUTHBUF_CAPACITY 100
 #define AUTH_TIMEOUT 15
 
-static int build_url(CURL *curl, char *urlbuf, size_t urlbufsize, const char *username, const char *password)
+static int build_url(CURL *curl, char *urlbuf, size_t urlbuf_size, const char *username, const char *password, const char *session_id)
 {
-    char *escaped_username = curl_easy_escape(curl, username, 0);
+    int ret = 0;
+    char *escaped_username = NULL;
+    char *escaped_password = NULL;
+    char *escaped_session_id = NULL;
+
+    escaped_username = curl_easy_escape(curl, username, 0);
     if (!escaped_username) {
-        return 0;
+        goto done;
     }
-    char *escaped_password = curl_easy_escape(curl, password, 0);
+    escaped_password = curl_easy_escape(curl, password, 0);
     if (!escaped_password) {
-        curl_free(escaped_username);
-        return 0;
+        goto done;
+    }
+    escaped_session_id = curl_easy_escape(curl, session_id, 0);
+    if (!escaped_session_id) {
+        goto done;
     }
 
-    int ret = 1;
-    if (snprintf(urlbuf, urlbufsize, "%s?username=%s&password=%s", settings.auth_url, escaped_username, escaped_password) >= urlbufsize) {
+    int url_len = snprintf(
+        urlbuf,
+        urlbuf_size,
+        "%s?username=%s&password=%s&session_id=%s",
+        settings.auth_url,
+        escaped_username,
+        escaped_password,
+        escaped_session_id
+    );
+    if (url_len >= urlbuf_size) {
         fprintf(stderr, "Authentication URL too long.\n");
-        ret = 0;
+        goto done;
+    }
+    if (url_len < 0) {
+        fprintf(stderr, "Failed to build authentication URL.\n");
+        goto done;
     }
 
+    ret = 1;
+
+done:
     curl_free(escaped_username);
     curl_free(escaped_password);
+    curl_free(escaped_session_id);
     return ret;
 }
 
-int do_auth(const char *username, const char *password)
+int do_auth(const char *username, const char *password, const char *session_id)
 {
     int ret = 0;
     char urlbuf[URL_SIZE];
@@ -56,7 +80,7 @@ int do_auth(const char *username, const char *password)
         return 0;
     }
 
-    if (!build_url(curl, urlbuf, URL_SIZE, username, password)) {
+    if (!build_url(curl, urlbuf, URL_SIZE, username, password, session_id)) {
         curl_easy_cleanup(curl);
         fclose(f);
         return 0;
@@ -72,10 +96,14 @@ int do_auth(const char *username, const char *password)
     ret =
         curl_easy_perform(curl) == 0 &&
         fputc('\0', f) != EOF &&
-        fflush(f) == 0 &&
-        (strcmp(resultbuf, "OK") == 0);
+        fflush(f) == 0;
 
-    if (!ret) {
+    if (ret) {
+        ret = (strcmp(resultbuf, "OK") == 0);
+        if (!ret) {
+            fprintf(stderr, "Auth denied by server.\n");
+        }
+    } else {
         fprintf(stderr, "Auth failed: %s\n", errbuf);
     }
 

@@ -48,6 +48,7 @@ Accepts a POST request of raw data with the following headers:
     X-Tmc-Version: 1
     X-Tmc-Username: username
     X-Tmc-Password: password
+    X-Tmc-Session-Id: session-id   (as alternative to password)
 
 (Note: these are passed to the CGI-script through envvars, which may be readable by local users.
 This is a security issue if the server has local users that cannot be fully trusted.)
