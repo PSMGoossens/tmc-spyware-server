@@ -7,27 +7,76 @@
 #include <string.h>
 #include <stdio.h>
 #include <curl/curl.h>
+#include <iconv.h>
 
 #define URL_SIZE 4096
 #define AUTHBUF_CAPACITY 100
 #define AUTH_TIMEOUT 15
 
+static char *iso_8859_1_to_utf8(const char *inbuf, size_t inlen)
+{
+    iconv_t cd = iconv_open("UTF-8", "ISO-8859-1");
+    if (cd == (iconv_t)-1) {
+        perror("Failed to open iconv conversion descriptor");
+        return NULL;
+    }
+
+    size_t outlen = inlen * 4;
+    char *outbuf = malloc(outlen + 1);
+    if (!outbuf) {
+        return NULL;
+    }
+
+    char *outptr = outbuf;
+    size_t outrem = outlen;
+    size_t ret = iconv(cd, (char **)&inbuf, &inlen, &outptr, &outrem);
+
+    iconv_close(cd);
+
+    if (ret == (size_t)-1) {
+        perror("Failed to convert parameter to utf8\n");
+        free(outbuf);
+        return NULL;
+    }
+
+    *outptr = '\0';
+
+    return outbuf;
+}
+
 static int build_url(CURL *curl, char *urlbuf, size_t urlbuf_size, const char *username, const char *password, const char *session_id)
 {
     int ret = 0;
+    char *utf8_username = NULL;
+    char *utf8_password = NULL;
+    char *utf8_session_id = NULL;
     char *escaped_username = NULL;
     char *escaped_password = NULL;
     char *escaped_session_id = NULL;
 
-    escaped_username = curl_easy_escape(curl, username, 0);
+    // The parameters are passed to this program through headers so they are ISO-8859-1-encoded.
+    utf8_username = iso_8859_1_to_utf8(username, strlen(username));
+    if (!utf8_username) {
+        goto done;
+    }
+    utf8_password = iso_8859_1_to_utf8(password, strlen(password));
+    if (!utf8_username) {
+        goto done;
+    }
+    utf8_session_id = iso_8859_1_to_utf8(session_id, strlen(session_id));
+    if (!utf8_session_id) {
+        goto done;
+    }
+
+    escaped_username = curl_easy_escape(curl, utf8_username, 0);
     if (!escaped_username) {
         goto done;
     }
-    escaped_password = curl_easy_escape(curl, password, 0);
+    escaped_password = curl_easy_escape(curl, utf8_password, 0);
     if (!escaped_password) {
         goto done;
     }
-    escaped_session_id = curl_easy_escape(curl, session_id, 0);
+    escaped_session_id = curl_easy_escape(curl, utf8_session_id, 0);
     if (!escaped_session_id) {
         goto done;
     }
@@ -53,6 +102,9 @@ static int build_url(CURL *curl, char *urlbuf, size_t urlbuf_size, const char *u
     ret = 1;
 
 done:
+    free(utf8_username);
+    free(utf8_password);
+    free(utf8_session_id);
     curl_free(escaped_username);
     curl_free(escaped_password);
     curl_free(escaped_session_id);

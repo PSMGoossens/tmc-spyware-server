@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# encoding: UTF-8
 
 gem 'minitest'
 require 'json'
@@ -33,7 +34,8 @@ class TestCgi < Minitest::Test
 
     Mimic.mimic(:port => @auth_port) do
       get("/auth.text") do
-        if params["username"] == "the user" && (params["password"] == "the+pass" || params["session_id"] == "the session id")
+        valid_users = ["the user", "pöllö"]
+        if valid_users.include?(params["username"]) && (params["password"] == "the+pass" || params["session_id"] == "the session id")
           [200, {}, "OK"]
         else
           [200, {}, "FAIL"]
@@ -130,6 +132,13 @@ class TestCgi < Minitest::Test
 
     out = run_cgi!("asd", env)
 
+    assert_starts_with("Status: 200 OK\n", out)
+  end
+
+  def test_auth_with_umlauted_username
+    # Note that unescaped headers are always iso-8859-1
+    env = @basic_env.merge("HTTP_X_TMC_USERNAME" => "pöllö".encode("ISO-8859-1"))
+    out = run_cgi!("asd", env)
     assert_starts_with("Status: 200 OK\n", out)
   end
 
