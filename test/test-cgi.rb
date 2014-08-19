@@ -34,7 +34,7 @@ class TestCgi < Minitest::Test
 
     Mimic.mimic(:port => @auth_port) do
       get("/auth.text") do
-        valid_users = ["the user", "pöllö"]
+        valid_users = ["the user", "pöllö", "user1", "user2", "user3"]
         if valid_users.include?(params["username"]) && (params["password"] == "the+pass" || params["session_id"] == "the session id")
           [200, {}, "OK"]
         else
@@ -142,6 +142,25 @@ class TestCgi < Minitest::Test
     assert_starts_with("Status: 200 OK\n", out)
   end
 
+  def test_site_index_file
+    outs = []
+    env = @basic_env.merge("HTTP_X_TMC_USERNAME" => "user3")
+    outs << run_cgi!("asd", env)
+    outs << run_cgi!("asd", env)
+    env = @basic_env.merge("HTTP_X_TMC_USERNAME" => "user2")
+    outs << run_cgi!("asd", env)
+    env = @basic_env.merge("HTTP_X_TMC_USERNAME" => "user1")
+    outs << run_cgi!("asd", env)
+    outs << run_cgi!("asd", env)
+
+    outs.each do |out|
+      assert_starts_with("Status: 200 OK\n", out)
+    end
+
+    expected_lines = ["user1\n", "user2\n", "user3\n"]
+    assert_equal(expected_lines, File.readlines(site_index_file))
+  end
+
   private
 
   def run_cgi!(stdin, envvars)
@@ -166,6 +185,10 @@ class TestCgi < Minitest::Test
     index_file = "#{@test_data_dir}/#{user}.idx"
     data_file = "#{@test_data_dir}/#{user}.dat"
     [parse_index(File.read(index_file)), File.read(data_file)]
+  end
+
+  def site_index_file
+    "#{@test_data_dir}/index.txt"
   end
 
   def read_log

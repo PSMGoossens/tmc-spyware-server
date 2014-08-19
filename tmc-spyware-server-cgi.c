@@ -5,6 +5,7 @@
 #include "auth.h"
 #include "datastream.h"
 #include "settings.h"
+#include "site_index.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -49,6 +50,12 @@ static int save_incoming_data(const char *username, ssize_t expected_length);
  * Outputs the CGI Status header. Returns 0 on success, 1 on failure (to match main()).
  */
 static int respond(int status, const char *reason);
+
+/**
+ * If special arguments were provided, execute a special command.
+ * Returns 1 on success, 0 on error and -1 if no special command was recognized.
+ */
+static int do_special_invocation(int argc, char** argv);
 
 
 static int is_method_post()
@@ -119,7 +126,7 @@ static int save_incoming_data(const char *username, ssize_t expected_length)
         return 0;
     }
 
-    if (!store_data(index_path, data_path, STDIN_FILENO, expected_length)) {
+    if (!store_data(settings.data_dir, index_path, data_path, STDIN_FILENO, expected_length)) {
         return 0;
     }
 
@@ -145,10 +152,26 @@ static int respond(int status, const char *reason)
     return ok ? 0 : 1;
 }
 
-int main()
+static int do_special_invocation(int argc, char** argv)
+{
+    if (argc == 2 && strcmp(argv[1], "write_site_index") == 0) {
+        return write_site_index(settings.data_dir);
+    }
+
+    return -1;
+}
+
+int main(int argc, char** argv)
 {
     if (!init_settings_from_env()) {
         fprintf(stderr, "Exiting due to missing or invalid settings.\n");
+        return respond(500, "Internal Server Error");
+    }
+
+    int special_status = do_special_invocation(argc, argv);
+    if (special_status == 1) {
+        return respond(200, "OK");
+    } else if (special_status == 0) {
         return respond(500, "Internal Server Error");
     }
 
