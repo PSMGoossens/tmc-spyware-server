@@ -11,6 +11,6 @@
  * from `infd` and it is considered an error if there is less input.
  * Returns 0 on failure. May print error messages to stderr.
  */
-int store_data(const char *index_path, const char *data_path, int infd, ssize_t expected_length);
+int store_data(const char *data_dir, const char *index_path, const char *data_path, int infd, ssize_t expected_length);
 
 #endif

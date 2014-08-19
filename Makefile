@@ -6,8 +6,8 @@ CURL_LIBS=$(shell pkg-config --libs libcurl)
 DEP_CFLAGS=$(CURL_CFLAGS)
 DEP_LIBS=$(CURL_LIBS)
 
-SOURCES=tmc-spyware-server-cgi.c auth.c datastream.c settings.c
-HEADERS=auth.h datastream.h settings.h
+SOURCES=tmc-spyware-server-cgi.c auth.c datastream.c settings.c site_index.c
+HEADERS=auth.h datastream.h settings.h site_index.h
 
 all: $(BINARY)
 

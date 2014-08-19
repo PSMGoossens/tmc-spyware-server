@@ -3,6 +3,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "datastream.h"
+#include "site_index.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -17,8 +18,9 @@
 #define STREAM_BUF_SIZE (32 * 1024)
 
 typedef struct DataFiles {
-    int index_fd; // Index file FD opened for writing
-    int data_fd;  // Data file FD opened for writing
+    int index_fd;     // Index file FD opened for writing
+    int data_fd;      // Data file FD opened for writing
+    int is_new_file;  // 1 if the index file (and presumably data file) was just created
 } DataFiles;
 
 // All helper functions shall return non-zero on success.
@@ -28,7 +30,7 @@ static int write_index(int index_fd, off_t data_offset, off_t data_len);
 static void close_datafiles(DataFiles df);
 
 
-int store_data(const char *index_path, const char *data_path, int infd, ssize_t expected_length)
+int store_data(const char *data_dir, const char *index_path, const char *data_path, int infd, ssize_t expected_length)
 {
     DataFiles df;
     if (!create_or_open_datafiles(index_path, data_path, &df)) {
@@ -60,6 +62,10 @@ int store_data(const char *index_path, const char *data_path, int infd, ssize_t 
         goto fail;
     }
 
+    if (df.is_new_file) {
+        write_site_index(data_dir);  // Ignore potential error. It was logged.
+    }
+
     close_datafiles(df);
     return 1;
 
@@ -74,7 +80,7 @@ static int create_or_open_datafiles(const char *index_path, const char *data_pat
     int data_fd = -1;
     int olderrno;
 
-    index_fd = open(index_path, O_CREAT | O_WRONLY, 0777);
+    index_fd = open(index_path, O_CREAT | O_WRONLY, 0666);
     if (index_fd == -1) {
         perror("Failed to open index file");
         goto fail;
@@ -90,7 +96,7 @@ static int create_or_open_datafiles(const char *index_path, const char *data_pat
         goto fail;
     }
 
-    data_fd = open(data_path, O_CREAT | O_WRONLY | O_APPEND, 0777);
+    data_fd = open(data_path, O_CREAT | O_WRONLY | O_APPEND, 0666);
     if (data_fd == -1) {
         perror("Failed to open data file for appending");
         goto fail;
@@ -98,6 +104,7 @@ static int create_or_open_datafiles(const char *index_path, const char *data_pat
 
     df->index_fd = index_fd;
     df->data_fd = data_fd;
+    df->is_new_file = (lseek(index_fd, 0, SEEK_CUR) == (off_t)0);
 
     return 1;
 
