@@ -74,7 +74,7 @@ static int create_or_open_datafiles(const char *index_path, const char *data_pat
     int data_fd = -1;
     int olderrno;
 
-    index_fd = open(index_path, O_CREAT | O_WRONLY, 0777);
+    index_fd = open(index_path, O_CREAT | O_WRONLY, 0666);
     if (index_fd == -1) {
         perror("Failed to open index file");
         goto fail;
@@ -90,7 +90,7 @@ static int create_or_open_datafiles(const char *index_path, const char *data_pat
         goto fail;
     }
 
-    data_fd = open(data_path, O_CREAT | O_WRONLY | O_APPEND, 0777);
+    data_fd = open(data_path, O_CREAT | O_WRONLY | O_APPEND, 0666);
     if (data_fd == -1) {
         perror("Failed to open data file for appending");
         goto fail;
