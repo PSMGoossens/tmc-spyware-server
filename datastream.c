@@ -176,13 +176,21 @@ static int write_index(int index_fd, off_t data_offset, off_t data_len)
     const int buf_size = 256;
     char buf[buf_size];
 
+    const char *remote_addr = getenv("HTTP_X_FORWARDED_FOR");
+    if (remote_addr == NULL) {
+        remote_addr = getenv("REMOTE_ADDR");
+    }
+    if (remote_addr == NULL) {
+        remote_addr = "";
+    }
+
     int rowlen = snprintf(
         buf,
         buf_size,
         "%lld %lld {\"ip\":\"%s\",\"t\":%lld}\n",
         (long long)data_offset,
         (long long)data_len,
-        getenv("REMOTE_ADDR"),
+        remote_addr,
         (long long)(tv.tv_sec * 1000 + tv.tv_usec / 1000)
     );
 
