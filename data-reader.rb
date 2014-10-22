@@ -59,6 +59,17 @@ class DataFilePair
   end
 end
 
+def human_bytes(amt)
+  suffixes = ['kB', 'MB', 'GB', 'TB']
+  suffix = 'B'
+  amt = amt.to_f
+  while amt > 1024 && !suffixes.empty?
+    amt /= 1024
+    suffix = suffixes.shift
+  end
+  sprintf("%.2f %s", amt, suffix)
+end
+
 if ARGV.include?('-h') || ARGV.include?('--help') || ARGV.empty?
   puts "Usage: #{$0} data-or-index-files..."
   exit!
@@ -80,11 +91,16 @@ end
 total_records = 0
 total_records_by_type = {}
 total_records_by_type.default = 0
+total_size_by_record_type = {}
+total_size_by_record_type.default = 0
 
 file_pairs.each do |index_file, data_file|
   DataFilePair.new(index_file, data_file).each_record do |record|
     total_records += 1
-    total_records_by_type[record['eventType']] += 1 if record['eventType']
+    if record['eventType']
+      total_records_by_type[record['eventType']] += 1
+      total_size_by_record_type[record['eventType']] += record['data'].size if record['data']
+    end
 
 #     if record['eventType'] == 'text_insert'
 #       puts JSON.parse(Base64.decode64(record['data']))['file']
@@ -96,4 +112,11 @@ end
 puts "Total records: #{total_records}"
 total_records_by_type.keys.sort.each do |ty|
   puts "  #{ty}: #{total_records_by_type[ty]}"
+end
+
+puts "Total 'data' field size: #{human_bytes(total_size_by_record_type.values.reduce(0, &:+))}"
+total_size_by_record_type.keys.sort.each do |ty|
+  total_size = total_size_by_record_type[ty].to_f
+  avg_size = total_size / total_records_by_type[ty].to_f
+  puts "  #{ty}: #{human_bytes(total_size)}  (average size of record: #{human_bytes(avg_size)})"
 end
