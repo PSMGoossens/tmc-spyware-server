@@ -81,6 +81,17 @@ Checksums may be added later to address these.
 
 The server can be load-balanced easily since the data files are easy to merge later.
 
+## data-reader.rb ##
+
+`data-reader.rb` is a script that reads through an index+data file.
+It prints rudimentary statistics about the file optionally copies the data to an sqlite3 file for easier analysis.
+
+Example:
+
+    ruby data-reader.rb --sqlite_out=data.sqlite3 username.idx
+    # Now we can e.g. query the largest code snapshot on a specific course:
+    echo "SELECT data FROM events WHERE courseName LIKE '%somecourse%' AND eventType = 'code_snapshot' ORDER BY length(data) DESC LIMIT 1;" | sqlite3 data.sqlite3 | base64 --decode > tmp.zip
+
 ## License ##
 
 [GPLv2](http://www.gnu.org/licenses/gpl-2.0.html)
