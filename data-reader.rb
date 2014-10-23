@@ -93,6 +93,8 @@ total_records_by_type = {}
 total_records_by_type.default = 0
 total_size_by_record_type = {}
 total_size_by_record_type.default = 0
+total_snapshot_size_by_course = {}
+total_snapshot_size_by_course.default = 0
 
 file_pairs.each do |index_file, data_file|
   DataFilePair.new(index_file, data_file).each_record do |record|
@@ -102,10 +104,9 @@ file_pairs.each do |index_file, data_file|
       total_size_by_record_type[record['eventType']] += record['data'].size if record['data']
     end
 
-#     if record['eventType'] == 'text_insert'
-#       puts JSON.parse(Base64.decode64(record['data']))['file']
-#       puts JSON.parse(Base64.decode64(record['data']))['patches']
-#     end
+    if record['eventType'] == 'code_snapshot' && record['courseName'] && record['data']
+      total_snapshot_size_by_course[record['courseName']] += record['data'].size
+    end
   end
 end
 
@@ -119,4 +120,9 @@ total_size_by_record_type.keys.sort.each do |ty|
   total_size = total_size_by_record_type[ty].to_f
   avg_size = total_size / total_records_by_type[ty].to_f
   puts "  #{ty}: #{human_bytes(total_size)}  (average size of record: #{human_bytes(avg_size)})"
+end
+
+puts "Total 'data' field size in code_snashot records: #{human_bytes(total_snapshot_size_by_course.values.reduce(0, &:+))}"
+total_snapshot_size_by_course.keys.sort.each do |course|
+  puts "  #{course}: #{human_bytes(total_snapshot_size_by_course[course])}"
 end
