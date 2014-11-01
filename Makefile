@@ -2,9 +2,11 @@
 BINARY=cgi-bin/tmc-spyware-server-cgi
 CURL_CFLAGS=$(shell pkg-config --cflags libcurl)
 CURL_LIBS=$(shell pkg-config --libs libcurl)
+OPENSSL_CFLAGS=$(shell pkg-config --cflags openssl)
+OPENSSL_LIBS=$(shell pkg-config --libs openssl)
 
-DEP_CFLAGS=$(CURL_CFLAGS)
-DEP_LIBS=$(CURL_LIBS)
+DEP_CFLAGS=$(CURL_CFLAGS) $(OPENSSL_CFLAGS)
+DEP_LIBS=$(CURL_LIBS) $(OPENSSL_LIBS)
 
 SOURCES=tmc-spyware-server-cgi.c auth.c datastream.c settings.c site_index.c
 HEADERS=auth.h datastream.h settings.h site_index.h

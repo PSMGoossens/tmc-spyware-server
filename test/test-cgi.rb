@@ -2,6 +2,7 @@
 # encoding: UTF-8
 
 gem 'minitest'
+require 'digest/sha1'
 require 'json'
 require 'socket' # work around https://github.com/lukeredpath/mimic/pull/12 
 require 'minitest/autorun'
@@ -159,6 +160,28 @@ class TestCgi < Minitest::Test
 
     expected_lines = ["user1\n", "user2\n", "user3\n"]
     assert_equal(expected_lines, File.readlines(site_index_file))
+  end
+
+  def test_checksum
+    in1 = "foo\nbar"
+    in2 = "asd" * 50000
+    env = @basic_env
+
+    out1 = run_cgi!(in1, env)
+    out2 = run_cgi!(in2, env)
+
+    [out1, out2].each do |out|
+      assert_starts_with("Status: 200 OK\n", out)
+    end
+
+    (index, data) = read_data
+
+    expected1 = Digest::SHA1.hexdigest(in1)
+    expected2 = Digest::SHA1.hexdigest(in2)
+
+    assert_equal(2, index.size)
+    assert_equal(expected1, index[0][2]['sha1'])
+    assert_equal(expected2, index[1][2]['sha1'])
   end
 
   private

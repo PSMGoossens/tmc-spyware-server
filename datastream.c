@@ -7,6 +7,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -14,6 +15,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+
+#include <openssl/sha.h>
 
 #define STREAM_BUF_SIZE (32 * 1024)
 
@@ -24,9 +27,11 @@ typedef struct DataFiles {
 } DataFiles;
 
 // All helper functions shall return non-zero on success.
+static void to_hex(uint8_t* input, size_t len, char* output);  // output must be 2*len + 1 bytes long. Null-terminates output.
+static char nibble_to_hex(uint8_t nibble);
 static int create_or_open_datafiles(const char *index_path, const char *data_path, DataFiles *df);
-static int stream_data(int infd, int outfd, off_t *total_written, ssize_t expected_length);
-static int write_index(int index_fd, off_t data_offset, off_t data_len);
+static int stream_data(int infd, int outfd, off_t *total_written, ssize_t expected_length, SHA_CTX* hash_ctx);
+static int write_index(int index_fd, off_t data_offset, off_t data_len, const char* sha1);
 static void close_datafiles(DataFiles df);
 
 
@@ -43,8 +48,21 @@ int store_data(const char *data_dir, const char *index_path, const char *data_pa
         goto fail;
     }
 
+    SHA_CTX hash_ctx;
+    uint8_t sha1_buf[SHA_DIGEST_LENGTH];
+    char sha1_hex_buf[2*SHA_DIGEST_LENGTH + 1];
+    if (SHA1_Init(&hash_ctx) == 0) {
+        fprintf(stderr, "Failed to init SHA1 hash\n");
+        goto fail;
+    }
+
     off_t data_len = 0;
-    if (!stream_data(infd, df.data_fd, &data_len, expected_length)) {
+    int status = stream_data(infd, df.data_fd, &data_len, expected_length, &hash_ctx);
+    if (SHA1_Final(sha1_buf, &hash_ctx) == 0) {
+        fprintf(stderr, "Failed to finish SHA1 hash\n");
+        goto fail;
+    }
+    if (!status) {
         goto fail;
     }
 
@@ -53,7 +71,8 @@ int store_data(const char *data_dir, const char *index_path, const char *data_pa
         goto fail;
     }
 
-    if (!write_index(df.index_fd, data_offset, data_len)) {
+    to_hex(sha1_buf, SHA_DIGEST_LENGTH, sha1_hex_buf);
+    if (!write_index(df.index_fd, data_offset, data_len, sha1_hex_buf)) {
         goto fail;
     }
 
@@ -72,6 +91,25 @@ int store_data(const char *data_dir, const char *index_path, const char *data_pa
 fail:
     close_datafiles(df);
     return 0;
+}
+
+static void to_hex(uint8_t* input, size_t len, char* output) {
+    for (int i = 0; i < len; ++i) {
+        uint8_t ch = input[i];
+        uint8_t hi = (ch & 0xF0) >> 4;
+        uint8_t lo = (ch & 0x0F);
+        output[2*i] = nibble_to_hex(hi);
+        output[2*i + 1] = nibble_to_hex(lo);
+    }
+    output[2*len] = '\0';
+}
+
+static char nibble_to_hex(uint8_t nibble) {
+    if (nibble < 10) {
+        return '0' + nibble;
+    } else {
+        return 'a' + (nibble - 10);
+    }
 }
 
 static int create_or_open_datafiles(const char *index_path, const char *data_path, DataFiles *df)
@@ -121,7 +159,7 @@ fail:
     return 0;
 }
 
-static int stream_data(int infd, int outfd, off_t *total_written, ssize_t expected_length)
+static int stream_data(int infd, int outfd, off_t *total_written, ssize_t expected_length, SHA_CTX *hash_ctx)
 {
     // Note: `expected_length` may be negative, which means there is no expected length from infd.
 
@@ -150,6 +188,11 @@ static int stream_data(int infd, int outfd, off_t *total_written, ssize_t expect
             }
         }
 
+        if (SHA1_Update(hash_ctx, buf, amt_read) == 0) {
+            fprintf(stderr, "Hashing failed.\n");
+            return 0;
+        }
+
         ssize_t amt_written = 0;
         while (amt_written < amt_read) {
             ssize_t amt_written_now = write(outfd, buf + amt_written, amt_read - amt_written);
@@ -168,7 +211,7 @@ static int stream_data(int infd, int outfd, off_t *total_written, ssize_t expect
     return 1;
 }
 
-static int write_index(int index_fd, off_t data_offset, off_t data_len)
+static int write_index(int index_fd, off_t data_offset, off_t data_len, const char* sha1_hex)
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -187,11 +230,12 @@ static int write_index(int index_fd, off_t data_offset, off_t data_len)
     int rowlen = snprintf(
         buf,
         buf_size,
-        "%lld %lld {\"ip\":\"%s\",\"t\":%lld}\n",
+        "%lld %lld {\"ip\":\"%s\",\"t\":%lld,\"sha1\":\"%s\"}\n",
         (long long)data_offset,
         (long long)data_len,
         remote_addr,
-        (long long)(tv.tv_sec * 1000 + tv.tv_usec / 1000)
+        (long long)(tv.tv_sec * 1000 + tv.tv_usec / 1000),
+        sha1_hex
     );
 
     errno = 0;
