@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+# TODO: refactor this to use the stuff in lib/
+
 require 'json'
 require 'zlib'
 require 'stringio'
