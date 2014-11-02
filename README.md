@@ -77,7 +77,7 @@ If a writer crashes, the data file will contain data that is not
 part of any indexed record. This is an acceptable and hopefully rare event.
 
 Non-battery-backed write caches and faulty disks remain a concern.
-Checksums may be added later to address these.
+This is addressed by checksums in the index files. Use `verify.rb` to verify them.
 
 The server can be load-balanced easily since the data files are easy to merge later.
 
