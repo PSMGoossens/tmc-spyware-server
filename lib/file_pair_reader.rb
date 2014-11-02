@@ -7,22 +7,44 @@ class FilePairReader
   def initialize(index_path)
     @index_path = index_path
     @data_path = index_path[0...-4] + '.dat'
+    @file = File.open(@index_path, "r+b")
+    @file.flock(File::LOCK_EX)
   end
 
-  def each(&block)
-    file = File.open(@index_path, "rb")
-    begin
-      file.flock(File::LOCK_EX)
-
-      file.each_line do |line|
-        record = parse_index_line(line)
-        block.call(record)
+  def self.open(index_path, &block)
+    if block
+      reader = FilePairReader.new(index_path)
+      begin
+        block.call(reader)
+      ensure
+        reader.close
       end
-
-      file.flock(File::LOCK_UN)
-    ensure
-      file.close
+    else
+      FilePairReader.new(index_path)
     end
+  end
+
+  def close
+    begin
+      @file.flock(File::LOCK_UN)
+    ensure
+      @file.close
+    end
+  end
+
+  def each_record(&block)
+    @file.each_line do |line|
+      record = parse_index_line(line)
+      block.call(record)
+    end
+  end
+
+  def rewind
+    @file.rewind
+  end
+
+  def write!(record)
+    @file.puts(record.to_index_line)
   end
 
   private

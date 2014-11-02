@@ -26,18 +26,19 @@ no_checksum_count = 0
 error_count = 0
 
 index_files.each do |file|
-  reader = FilePairReader.new(file)
-  reader.each do |record|
-    begin
-      if record.sha1_checksum
-        record_count += 1
-        record.verify_checksum
-      else
-        no_checksum_count += 1
+  FilePairReader.open(file) do |reader|
+    reader.each_record do |record|
+      begin
+        if record.sha1_checksum
+          record_count += 1
+          record.verify_checksum
+        else
+          no_checksum_count += 1
+        end
+      rescue Record::ChecksumError => e
+        puts e.message
+        error_count += 1
       end
-    rescue Record::ChecksumError => e
-      puts e.message
-      error_count += 1
     end
   end
 end
