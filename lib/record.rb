@@ -26,7 +26,7 @@ class Record
     @metadata['sha1'] = new_checksum
   end
 
-  def verify_checksum
+  def verify_checksum!
     expected = sha1_checksum
     if expected
       actual = calculate_data_checksum

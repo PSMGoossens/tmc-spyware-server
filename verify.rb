@@ -31,7 +31,7 @@ index_files.each do |file|
       begin
         if record.sha1_checksum
           record_count += 1
-          record.verify_checksum
+          record.verify_checksum!
         else
           no_checksum_count += 1
         end
