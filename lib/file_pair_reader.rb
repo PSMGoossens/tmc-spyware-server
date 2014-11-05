@@ -6,9 +6,13 @@ require 'record'
 class FilePairReader
   def initialize(index_path)
     @index_path = index_path
-    @data_path = index_path[0...-4] + '.dat'
+    @data_path = self.class.index_path_to_data_path(index_path)
     @file = File.open(@index_path, "r+b")
     @file.flock(File::LOCK_EX)
+  end
+
+  def self.index_path_to_data_path(index_path)
+    index_path[0...-4] + '.dat'
   end
 
   def self.open(index_path, &block)
