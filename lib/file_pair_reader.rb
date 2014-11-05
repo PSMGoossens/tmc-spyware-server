@@ -58,7 +58,11 @@ class FilePairReader
     raise "Invalid index line: #{line}" if parts.length != 3
     offset = parts[0].to_i
     length = parts[1].to_i
-    metadata = ActiveSupport::JSON.decode(parts[2])
+    if parts[2].nil? || parts[2].empty?
+      metadata = {}
+    else
+      metadata = ActiveSupport::JSON.decode(parts[2])
+    end
     Record.new(@index_path, @data_path, offset, length, metadata)
   end
 end
