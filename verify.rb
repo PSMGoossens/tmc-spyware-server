@@ -26,6 +26,7 @@ no_checksum_count = 0
 error_count = 0
 
 index_files.each do |file|
+  puts "Verifying #{file}"
   FilePairReader.open(file) do |reader|
     reader.each_record do |record|
       begin
