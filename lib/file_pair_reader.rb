@@ -30,6 +30,7 @@ class FilePairReader
 
   def close
     begin
+      @file.flush
       @file.flock(File::LOCK_UN)
     ensure
       @file.close
