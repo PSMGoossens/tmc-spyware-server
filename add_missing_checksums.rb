@@ -35,7 +35,7 @@ index_files.each do |index_file|
     records = []
     reader.each_record { |r| records << r }
 
-    reader.rewind
+    reader.rewind_and_truncate!
 
     records.each do |record|
       total_records += 1

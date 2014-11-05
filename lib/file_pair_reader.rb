@@ -44,8 +44,9 @@ class FilePairReader
     end
   end
 
-  def rewind
+  def rewind_and_truncate!
     @file.rewind
+    @file.truncate(0)
   end
 
   def write!(record)
