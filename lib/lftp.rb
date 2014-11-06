@@ -11,6 +11,7 @@ class LFTP
 
   def list_directory(path)
     output = do_commands(['cd', path], ['find', '-d', '2'])
+    output.force_encoding('ASCII-8BIT')
     lines = output.split("\n")
     lines.map do |line|
       line.sub(/^\.*\/?/, '').sub(/\/$/, '')
@@ -22,7 +23,7 @@ class LFTP
   end
 
   def continue_copying_remote_file(path, local_path)
-    do_commands(['get1', '-c', '-o', local_path, path])
+    do_commands(['get1', '-c', '-o', local_path, '--', path])
   end
 
   private
