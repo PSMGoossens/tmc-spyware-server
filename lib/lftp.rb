@@ -25,24 +25,6 @@ class LFTP
     do_commands(['get1', '-c', '-o', local_path, path])
   end
 
-  def copy_remote_file(path, local_path, options = {})
-    options = {
-      :remote_range => nil,
-      :local_offset => nil
-    }.merge(options)
-    command = ['get1', '-o', local_path]
-    if options[:remote_range]
-      from = options[:remote_range].first
-      to = options[:remote_range].last
-      command << "--source-region=#{from}-#{to}"
-    end
-    if options[:local_offset]
-      command << "--target-position=#{pos}"
-    end
-    command << path
-    do_commands(command)
-  end
-
   private
 
   def do_commands(*commands)
