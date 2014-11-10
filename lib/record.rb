@@ -47,7 +47,7 @@ class Record
   def to_index_line
     metadata_json = ActiveSupport::JSON.encode(@metadata)
     raise "Invalid metadata - has linebreak" if metadata_json.include?("\n")
-    "#{@offset}, #{@length} #{metadata_json}"
+    "#{@offset} #{@length} #{metadata_json}"
   end
 
   def to_s
