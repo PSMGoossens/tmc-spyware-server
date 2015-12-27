@@ -1,6 +1,8 @@
  
 # TMC spyware server #
 
+[![Build Status](https://travis-ci.org/testmycode/tmc-spyware-server.svg?branch=travis)](https://travis-ci.org/testmycode/tmc-spyware-server)
+
 This CGI program receives data from
 [TMC's NetBeans plugin](https://github.com/testmycode/tmc-netbeans)
 about how the student works.
