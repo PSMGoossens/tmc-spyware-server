@@ -145,6 +145,8 @@ int do_auth(const char *username, const char *password, const char *session_id)
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, (long)(AUTH_TIMEOUT));
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, f);
     curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "TMC spyware server/1.0");
+
     ret =
         curl_easy_perform(curl) == 0 &&
         fputc('\0', f) != EOF &&
