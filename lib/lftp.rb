@@ -1,4 +1,5 @@
 
+require 'tempfile'
 require 'shellwords'
 
 # Wrapper for the lftp command
@@ -29,15 +30,25 @@ class LFTP
   private
 
   def do_commands(*commands)
-    commands = commands.clone
-    commands.unshift(['lcd', @local])
-    commands.unshift(['open', @remote])
-    commands.map! {|command| command.map {|word| quote_file_name(word) }.join(' ') }
+    Tempfile.open('lftp-setderr') do |stderr_file|
+      commands = commands.clone
+      commands.unshift(['lcd', @local])
+      commands.unshift(['open', @remote])
+      commands.map! {|command| command.map {|word| quote_file_name(word) }.join(' ') }
 
-    shell_command = Shellwords.join ['lftp', '-vvv', '-c', commands.join(' ; ')]
-    output = `#{shell_command}`
-    raise "LFTP command failed." unless $?.success?
-    output
+      shell_command = Shellwords.join ['lftp', '-vvv', '-c', commands.join(' ; ')]
+      output = `#{shell_command} 2> #{Shellwords.escape(stderr_file.path)}`
+      status = $?
+      unless status.success?
+        begin
+          stderr = File.read(stderr_file)
+        rescue
+          stderr = "<failed to read temp LFTP stderr file>"
+        end
+        raise "LFTP command failed with #{status}. stderr:\n#{stderr}"
+      end
+      output
+    end
   end
 
   def quote_file_name(name)
