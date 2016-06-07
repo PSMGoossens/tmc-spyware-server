@@ -5,7 +5,7 @@ rvm:
 addons:
   apt:
     packages:
-      - libcurl-dev
+      - libcurl4-openssl-dev
 
 install:
   - bundle install --jobs=3 --retry=3
