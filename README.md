@@ -23,9 +23,20 @@ The program is configured via envvars. Here is a configuration example for Apach
         ServerName spyware.example.com
 
         DocumentRoot /path/to/cgi-bin
+        
+        // OPTIONAL
+        Header always set Access-Control-Allow-Origin "*"
+        Header always set Access-Control-Allow-Methods "POST, OPTIONS"
+        Header always set Access-Control-Allow-Headers "x-tmc-password, x-tmc-username, x-tmc-version"
 
         RewriteEngine on
+
+        // OPTIONAL
+        RewriteCond %{REQUEST_METHOD} =OPTIONS
+        RewriteRule .* - [R=200,L]
+
         RewriteRule ^.*$ /tmc-spyware-server-cgi [L]
+
         <Directory />
             SetEnv TMC_SPYWARE_AUTH_URL "http://localhost:3000/auth.text"
             SetEnv TMC_SPYWARE_DATA_DIR "/path/to/data"
@@ -34,6 +45,8 @@ The program is configured via envvars. Here is a configuration example for Apach
             SetHandler cgi-script
         </Directory>
     </VirtualHost>
+
+The CORS settings can be omited unless browser like environments are used to post data to tmc-spyware-server using utilities like [tmc-analytics-js](https://github.com/testmycode/tmc-analytics-js). Also the `OPTIONS` must be set to return 200 for the browsers CORS [preflight test](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS#Preflighted_requests) will pass
 
 ## Running tests ##
 
