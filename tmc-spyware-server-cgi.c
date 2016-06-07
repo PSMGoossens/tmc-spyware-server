@@ -26,6 +26,12 @@
 static int is_method_post();
 
 /**
+ * Checks whether the request was a OPTIONS request.
+ * Browsers sends first OPTIONS before making the real request.
+ */
+static int is_method_options();
+
+/**
  * Reads and parses CONTENT_LENGTH from the environment, returns -1 if not present or invalid.
  */
 static ssize_t get_content_length();
@@ -62,6 +68,12 @@ static int is_method_post()
 {
     const char *method = getenv("REQUEST_METHOD");
     return (method && strcmp(method, "POST") == 0);
+}
+
+static int is_method_options()
+{
+    const char *method = getenv("REQUEST_METHOD");
+    return (method && strcmp(method, "OPTIONS") == 0);
 }
 
 static ssize_t get_content_length()
@@ -173,6 +185,10 @@ int main(int argc, char** argv)
         return respond(200, "OK");
     } else if (special_status == 0) {
         return respond(500, "Internal Server Error");
+    }
+
+    if (is_method_options()) {
+        return respond(200, "OK");
     }
 
     if (!is_method_post()) {
